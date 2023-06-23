@@ -76,64 +76,72 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
   final dbHelper = DatabaseHelper();
+  List<GlucoseReading> glucoseReadings = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    final readings = await dbHelper.getGlucoseReadings();
+    setState(() {
+      glucoseReadings = readings;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    List<GlucoseReading> lastThreeReadings = glucoseReadings.length >= 3
+        ? glucoseReadings.sublist(glucoseReadings.length - 3)
+        : glucoseReadings;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('MediFlutter'),
       ),
-      body: FutureBuilder<List<GlucoseReading>>(
-        future: dbHelper.getGlucoseReadings(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            final glucoseReadings = snapshot.data!;
-            List<GlucoseReading> lastThreeReadings = glucoseReadings.length >= 3
-                ? glucoseReadings.sublist(glucoseReadings.length - 3)
-                : glucoseReadings;
-
-            return Column(
-              children: [
-                SizedBox(height: 16),
-                Text(
-                  'Last ${lastThreeReadings.length} Glucose Readings',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                ...lastThreeReadings.map((reading) {
-                  return Card(
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: ListTile(
-                      leading: Icon(Icons.favorite),
-                      title: Text('Glucose Value: ${reading.value}'),
-                      subtitle: Text(
-                          'Date: ${DateFormat('MMM dd, yyyy - HH:mm').format(reading.dateTime)}'),
-                    ),
-                  );
-                }).toList(),
-                SizedBox(height: 16),
-                Expanded(
-                  child: GlucoseLineChart(glucoseReadings: glucoseReadings),
-                ),
-              ],
+      body: Column(
+        children: [
+          SizedBox(height: 16),
+          Text(
+            'Last ${lastThreeReadings.length} Glucose Readings',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          ...lastThreeReadings.map((reading) {
+            return Card(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                leading: Icon(Icons.favorite),
+                title: Text('Glucose Value: ${reading.value}'),
+                subtitle: Text(
+                    'Date: ${DateFormat('MMM dd, yyyy - HH:mm').format(reading.dateTime)}'),
+              ),
             );
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else {
-            return Center(child: CircularProgressIndicator());
-          }
-        },
+          }).toList(),
+          SizedBox(height: 16),
+          Expanded(
+            child: GlucoseLineChart(glucoseReadings: glucoseReadings),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
+        onPressed: () async {
+          await showDialog(
             context: context,
             builder: (BuildContext context) {
               return GlucoseForm();
             },
           );
+          fetchData();
         },
         child: Icon(Icons.add),
       ),
